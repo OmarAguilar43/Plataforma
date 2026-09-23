@@ -3,25 +3,24 @@ using TMPro;
 
 public class moneda : MonoBehaviour
 {
-    public TextMeshProUGUI texto;
-    public static int contador;
+    public static int contador = 0;
+    private static TextMeshProUGUI texto;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        contador = 0;
+        if (texto == null)
+        {
+            GameObject obj = GameObject.FindWithTag("ContadorMonedas");
+            if (obj != null) texto = obj.GetComponent<TextMeshProUGUI>();
+        }
     }
 
-    // Update is called once per frame
-    void Update()
+    private void OnTriggerEnter2D(Collider2D other)
     {
-        
-    }
+        if (!other.CompareTag("Player")) return;
 
-    private void OnCollisionEnter2D(Collision2D collision)
-    {
         contador++;
-        texto.text = contador + "";
+        if (texto != null) texto.text = contador.ToString();
         Destroy(gameObject);
     }
 }

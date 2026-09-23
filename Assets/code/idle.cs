@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class idle : MonoBehaviour
+public class Personaje : MonoBehaviour
 {
     Rigidbody2D rd;
     Animator anim;
@@ -8,92 +8,93 @@ public class idle : MonoBehaviour
     public float fuerzaSalto = 8f;
 
     [Header("Deteccion de suelo")]
-    public Transform puntoSuelo;
-    public float radioSuelo = 0.2f;
+    public float distanciaRayo = 0.6f;
     public LayerMask capaSuelo;
 
-    bool enSuelo;
+    [Header("Muerte por caida")]
+    public float yMinimo = -10f;
 
-    // Start se llama una vez al inicio
+    [Header("Slide")]
+    public float velocidadSlide = 10f;
+    public float duracionSlide = 0.4f;
+
+    bool enSuelo;
+    bool sliding;
+    float timerSlide;
+    float direccionSlide;
+
     void Start()
     {
         rd = GetComponent<Rigidbody2D>();
         anim = GetComponent<Animator>();
     }
 
-    // Update se llama en cada frame
     void Update()
     {
-        if (puntoSuelo == null)
+        enSuelo = Physics2D.Raycast(transform.position, Vector2.down, distanciaRayo, capaSuelo);
+
+        if (transform.position.y < yMinimo)
         {
+            GameManager.instancia.Perder();
             return;
         }
 
-        enSuelo = Physics2D.OverlapCircle(puntoSuelo.position, radioSuelo, capaSuelo);
-
-        // Usar GetAxisRaw para controles más precisos en 2D (devuelve -1, 0 o 1 exactos)
         float movimiento = Input.GetAxisRaw("Horizontal");
         float direccion = transform.rotation.eulerAngles.y;
 
-        // Lógica de Movimiento y Animación "run"
-        if (movimiento == 0)
+        if (!sliding)
         {
+            if (movimiento < 0) direccion = 180;
+            else if (movimiento > 0) direccion = 0;
+        }
+        else
+        {
+            direccion = direccionSlide;
+        }
+        transform.rotation = Quaternion.Euler(0, direccion, 0);
+
+        // Slide
+        if (enSuelo && !sliding && Input.GetAxisRaw("Vertical") < 0 && movimiento != 0)
+        {
+            sliding = true;
+            timerSlide = duracionSlide;
+            direccionSlide = direccion;
+            anim.SetBool("slide", true);
             anim.SetBool("run", false);
         }
-        else if (movimiento < 0) // Izquierda
-        {
-            anim.SetBool("run", true);
-            direccion = 180;
-        }
-        else if (movimiento > 0) // Derecha
-        {
-            anim.SetBool("run", true);
-            direccion = 0;
-        }
-        
-        gameObject.transform.rotation = UnityEngine.Quaternion.Euler(0, direccion, 0);
 
-        // Aplicar velocidad
-        rd.linearVelocity = new Vector2(velocidad * movimiento, rd.linearVelocity.y);
-
-        // Lógica de Salto y Animación "jump"
-        if (Input.GetButtonDown("Jump") && enSuelo)
+        if (sliding)
         {
-            rd.linearVelocity = new Vector2(rd.linearVelocity.x, fuerzaSalto);
-            if (anim != null)
+            timerSlide -= Time.deltaTime;
+            float dir = (direccionSlide == 180) ? -1f : 1f;
+            rd.linearVelocity = new Vector2(velocidadSlide * dir, rd.linearVelocity.y);
+
+            if (timerSlide <= 0)
             {
-                anim.SetBool("jump", true); 
+                sliding = false;
+                anim.SetBool("slide", false);
             }
-        }
-
-        // Desactivar la animación de salto cuando vuelva a tocar el suelo
-        if (enSuelo && rd.linearVelocity.y <= 0)
-        {
-            if (anim != null)
-            {
-                anim.SetBool("jump", false);
-            }
-
-
-        }
-
-        if(!enSuelo){
-            anim.SetBool("jump", true);
-            anim.SetBool("run",false);
-        }
-
-
-    }
-
-    // Dibuja el círculo de detección de suelo en el editor
-    void OnDrawGizmosSelected()
-    {
-        if (puntoSuelo == null)
-        {
             return;
         }
 
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(puntoSuelo.position, radioSuelo);
+        rd.linearVelocity = new Vector2(velocidad * movimiento, rd.linearVelocity.y);
+
+        if (enSuelo)
+        {
+            anim.SetBool("jump", false);
+            anim.SetBool("run", movimiento != 0);
+
+            if (Input.GetButtonDown("Jump"))
+            {
+                rd.linearVelocity = new Vector2(rd.linearVelocity.x, fuerzaSalto);
+                anim.SetBool("jump", true);
+                anim.SetBool("run", false);
+            }
+        }
+        else
+        {
+            anim.SetBool("jump", true);
+            anim.SetBool("run", false);
+        }
     }
 }
