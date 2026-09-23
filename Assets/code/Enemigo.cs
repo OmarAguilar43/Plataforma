@@ -37,7 +37,7 @@ public class Enemigo : MonoBehaviour
             rdJugador.linearVelocity = new Vector2(rdJugador.linearVelocity.x, 6f);
             Destroy(gameObject);
         }
-        else
+        else if (GameManager.instancia != null)
         {
             GameManager.instancia.Perder();
         }

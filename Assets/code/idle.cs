@@ -4,11 +4,12 @@ public class Personaje : MonoBehaviour
 {
     Rigidbody2D rd;
     Animator anim;
-    public float velocidad;
+    Collider2D col;
+
+    public float velocidad = 5f;
     public float fuerzaSalto = 8f;
 
     [Header("Deteccion de suelo")]
-    public float distanciaRayo = 0.6f;
     public LayerMask capaSuelo;
 
     [Header("Muerte por caida")]
@@ -27,48 +28,50 @@ public class Personaje : MonoBehaviour
     {
         rd = GetComponent<Rigidbody2D>();
         anim = GetComponent<Animator>();
+        col = GetComponent<Collider2D>();
     }
 
     void Update()
     {
-        enSuelo = Physics2D.Raycast(transform.position, Vector2.down, distanciaRayo, capaSuelo);
+        // Detectar suelo usando los bordes del collider
+        Bounds b = col.bounds;
+        enSuelo = Physics2D.OverlapBox(
+            new Vector2(b.center.x, b.min.y),
+            new Vector2(b.size.x * 0.9f, 0.1f),
+            0f,
+            capaSuelo
+        );
 
-        if (transform.position.y < yMinimo)
+        if (transform.position.y < yMinimo && GameManager.instancia != null)
         {
             GameManager.instancia.Perder();
             return;
         }
 
         float movimiento = Input.GetAxisRaw("Horizontal");
-        float direccion = transform.rotation.eulerAngles.y;
 
+        // Voltear personaje
         if (!sliding)
         {
-            if (movimiento < 0) direccion = 180;
-            else if (movimiento > 0) direccion = 0;
+            if (movimiento < 0) transform.rotation = Quaternion.Euler(0, 180, 0);
+            else if (movimiento > 0) transform.rotation = Quaternion.Euler(0, 0, 0);
         }
-        else
-        {
-            direccion = direccionSlide;
-        }
-        transform.rotation = Quaternion.Euler(0, direccion, 0);
 
         // Slide
-        if (enSuelo && !sliding && Input.GetAxisRaw("Vertical") < 0 && movimiento != 0)
+        if (enSuelo && !sliding && Input.GetAxisRaw("Vertical") < 0)
         {
             sliding = true;
             timerSlide = duracionSlide;
-            direccionSlide = direccion;
+            direccionSlide = transform.rotation.eulerAngles.y == 180 ? -1f : 1f;
             anim.SetBool("slide", true);
             anim.SetBool("run", false);
+            anim.SetBool("jump", false);
         }
 
         if (sliding)
         {
+            rd.linearVelocity = new Vector2(velocidadSlide * direccionSlide, rd.linearVelocity.y);
             timerSlide -= Time.deltaTime;
-            float dir = (direccionSlide == 180) ? -1f : 1f;
-            rd.linearVelocity = new Vector2(velocidadSlide * dir, rd.linearVelocity.y);
-
             if (timerSlide <= 0)
             {
                 sliding = false;
@@ -77,6 +80,7 @@ public class Personaje : MonoBehaviour
             return;
         }
 
+        // Movimiento normal
         rd.linearVelocity = new Vector2(velocidad * movimiento, rd.linearVelocity.y);
 
         if (enSuelo)
